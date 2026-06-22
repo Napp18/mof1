@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>دفتر الإنجاز</title>
+    <meta name="description" content="تطبيق دفتر الإنجاز - مفكرة ذكية لإدارة الملاحظات والمهام والروابط والعمل">
+    <meta name="theme-color" content="#116A52">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="دفتر الإنجاز">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23116A52'/><text x='50' y='65' text-anchor='middle' fill='white' font-size='50' font-family='Arial'>📒</text></svg>">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#116A52', 
+                        primaryDark: '#0d4f3d', 
+                        accent: '#85dec8' 
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Cairo', sans-serif; overflow-x: hidden; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .modal-enter { animation: slideUp 0.3s ease-out forwards; }
+        @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        ::selection { background-color: #116A52; color: white; }
+        #installBanner { display: none; }
+        #installBanner.show { display: flex; }
+    </style>
+</head>
+<body class="bg-[#f8fafc] dark:bg-[#121212] text-gray-800 dark:text-gray-200 antialiased min-h-screen relative pb-28 transition-colors duration-300">
+
+    <!-- ================= شريط تثبيت التطبيق ================= -->
+    <div id="installBanner" class="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-primary to-primaryDark text-white px-4 py-3 flex items-center justify-between gap-3 shadow-lg animate-slideDown" style="display:none;">
+        <div class="flex items-center gap-2">
+            <i class="ph ph-download-simple text-2xl"></i>
+            <div>
+                <p class="font-bold text-sm">تثبيت التطبيق</p>
+                <p class="text-xs text-white/80">ثبّت دفتر الإنجاز للوصول السريع</p>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="dismissInstall()" class="text-white/70 hover:text-white text-sm px-3 py-1">لاحقاً</button>
+            <button onclick="installApp()" class="bg-white text-primary font-bold px-4 py-1.5 rounded-lg text-sm border border-black hover:bg-gray-100 transition">تثبيت</button>
+        </div>
+    </div>
+
+    <!-- ================= الشريط العلوي ================= -->
+    <header class="bg-primary dark:bg-primaryDark border-b border-black px-4 py-3 sticky top-0 z-30 flex justify-between items-center transition-colors duration-300">
+        <div class="flex items-center gap-2 min-w-0">
+            <button onclick="openSidebar()" class="w-10 h-10 rounded-xl border border-black bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition shrink-0">
+                <i class="ph ph-list text-xl"></i>
+            </button>
+            <h1 id="main-header-title" class="text-white font-extrabold text-lg truncate flex items-center gap-2">
+                <i class="ph-fill ph-note-pencil text-primary dark:text-accent"></i> <span>الملاحظات</span>
+            </h1>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+            <div id="item-count-badge" class="bg-white/10 border border-black text-white px-2.5 py-1 rounded-full text-xs font-bold">0</div>
+            <button onclick="toggleTheme()" class="w-10 h-10 rounded-xl border border-black bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition">
+                <i id="themeIcon" class="ph ph-moon text-xl"></i>
+            </button>
+            <div id="firebaseStatus" class="relative w-10 h-10 rounded-xl bg-white/10 border border-black flex items-center justify-center text-white transition" title="حالة المزامنة" aria-label="حالة المزامنة">
+                <i id="firebaseStatusIcon" class="ph ph-database text-xl"></i>
+                <span id="firebaseStatusDot" class="absolute top-1.5 right-1.5 w-3 h-3 rounded-full border border-black bg-amber-400 animate-pulse"></span>
+            </div>
+        </div>
+    </header>
+
+    <!-- ================= شريط التنقل ================= -->
+    <nav class="bg-primary dark:bg-primaryDark border-b border-black px-2 py-2 flex gap-1 overflow-x-auto hide-scrollbar sticky top-[57px] z-20 transition-colors duration-300">
+        <button onclick="switchCategory('notes')" data-cat="notes" class="nav-btn px-3 py-2 rounded-xl text-sm font-bold flex items-center gap-1.5 shrink-0 transition">
+            <span class="icon-container w-8 h-8 rounded-lg flex items-center justify-center border border-black bg-white/20 text-white"><i class="ph-fill ph-note-pencil"></i></span>
+            <span class="text-white">ملاحظات</span>
+        </button>
+        <button onclick="switchCategory('tasks')" data-cat="tasks" class="nav-btn px-3 py-2 rounded-xl text-sm font-bold flex items-center gap-1.5 shrink-0 transition">
+            <span class="icon-container w-8 h-8 rounded-lg flex items-center justify-center border border-transparent text-white/60"><i class="ph ph-check-square"></i></span>
+            <span class="text-white/60">مهام</span>
+        </button>
+        <button onclick="switchCategory('links')" data-cat="links" class="nav-btn px-3 py-2 rounded-xl text-sm font-bold flex items-center gap-1.5 shrink-0 transition">
+            <span class="icon-container w-8 h-8 rounded-lg flex items-center justify-center border border-transparent text-white/60"><i class="ph ph-link"></i></span>
+            <span class="text-white/60">روابط</span>
+        </button>
+        <button onclick="switchCategory('work')" data-cat="work" class="nav-btn px-3 py-2 rounded-xl text-sm font-bold flex items-center gap-1.5 shrink-0 transition">
+            <span class="icon-container w-8 h-8 rounded-lg flex items-center justify-center border border-transparent text-white/60"><i class="ph ph-briefcase"></i></span>
+            <span class="text-white/60">عمل</span>
+        </button>
+    </nav>
+
+    <!-- ================= منطقة المحتوى ================= -->
+    <main class="px-4 py-4">
+        <div class="flex items-center gap-2 mb-4">
+            <select id="categoryFilter" onchange="renderData()" class="bg-white dark:bg-[#2a2a2a] border border-black dark:border-gray-700 text-gray-800 dark:text-white rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-primary transition w-full">
+                <option value="all">كل الفئات</option>
+            </select>
+        </div>
+        <div id="content-area" class="flex flex-col gap-3">
+            <div class="text-center text-gray-500 py-20"><p class="font-bold">لا يوجد عناصر هنا.</p></div>
+        </div>
+    </main>
+
+    <!-- ================= الشريط السفلي ================= -->
+    <nav class="fixed bottom-0 left-0 w-full bg-primary dark:bg-primaryDark border-t border-black h-[65px] z-40 flex justify-between px-6 items-center transition-colors duration-300">
+        <div class="flex gap-4 sm:gap-8 w-full justify-start">
+            <button onclick="switchCategory('notes')" class="nav-btn flex flex-col items-center justify-center w-12 transition-transform active:scale-90" data-cat="notes">
+                <div class="icon-container w-9 h-9 rounded-xl flex items-center justify-center transition-all border border-transparent">
+                    <i class="ph ph-note text-2xl"></i>
+                </div>
+                <span class="text-[10px] font-semibold mt-0.5">ملاحظات</span>
+            </button>
+            <button onclick="switchCategory('tasks')" class="nav-btn flex flex-col items-center justify-center w-12 transition-transform active:scale-90" data-cat="tasks">
+                <div class="icon-container w-9 h-9 rounded-xl flex items-center justify-center transition-all border border-transparent">
+                    <i class="ph ph-check-square-offset text-2xl"></i>
+                </div>
+                <span class="text-[10px] font-semibold mt-0.5">مهام</span>
+            </button>
+        </div>
+        
+        <div class="w-20 shrink-0 relative"></div> 
+
+        <div class="flex gap-4 sm:gap-8 w-full justify-end">
+            <button onclick="switchCategory('links')" class="nav-btn flex flex-col items-center justify-center w-12 transition-transform active:scale-90" data-cat="links">
+                <div class="icon-container w-9 h-9 rounded-xl flex items-center justify-center transition-all border border-transparent">
+                    <i class="ph ph-link text-2xl"></i>
+                </div>
+                <span class="text-[10px] font-semibold mt-0.5">روابط</span>
+            </button>
+            <button onclick="switchCategory('work')" class="nav-btn flex flex-col items-center justify-center w-12 transition-transform active:scale-90" data-cat="work">
+                <div class="icon-container w-9 h-9 rounded-xl flex items-center justify-center transition-all border border-transparent">
+                    <i class="ph ph-gear text-2xl"></i>
+                </div>
+                <span class="text-[10px] font-semibold mt-0.5">عمل</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- الزر العائم المركزي (FAB) -->
+    <button onclick="openModal()" class="fixed bottom-6 left-1/2 -translate-x-1/2 w-14 h-14 bg-accent text-[#1a1a1a] rounded-full flex items-center justify-center border border-black z-50 hover:bg-[#68c5b0] transition-transform active:scale-95 shadow-lg">
+        <i class="ph ph-plus text-2xl font-bold"></i>
+    </button>
+
+    <!-- ================= القائمة الجانبية ================= -->
+    <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-40 hidden opacity-0 transition-opacity duration-300" onclick="closeSidebar()"></div>
+    <div id="sidebarMenu" class="fixed top-0 right-0 h-full w-72 bg-white dark:bg-[#1a1a1a] z-50 shadow-2xl transform translate-x-full transition-transform duration-300 overflow-y-auto border-l border-black dark:border-gray-800">
+        <div class="p-4 border-b border-black dark:border-gray-800 bg-primary dark:bg-primaryDark">
+            <div class="flex items-center justify-between">
+                <h2 class="text-white font-extrabold text-lg">دفتر الإنجاز</h2>
+                <button onclick="closeSidebar()" class="w-8 h-8 rounded-lg border border-black bg-white/10 flex items-center justify-center text-white"><i class="ph ph-x"></i></button>
+            </div>
+            <p id="header-date-badge" class="text-white/70 text-sm mt-1"></p>
+        </div>
+        <div class="p-4 space-y-3">
+            <button onclick="openCalendarModal(); closeSidebar();" class="w-full flex items-center gap-2 p-3 rounded-xl border border-black dark:border-gray-700 bg-gray-50 dark:bg-[#2a2a2a] hover:bg-gray-100 dark:hover:bg-[#333] transition font-bold">
+                <i class="ph ph-calendar text-primary dark:text-accent text-xl"></i> التقويم
+            </button>
+            <button onclick="openSettingsModal(); closeSidebar();" class="w-full flex items-center gap-2 p-3 rounded-xl border border-black dark:border-gray-700 bg-gray-50 dark:bg-[#2a2a2a] hover:bg-gray-100 dark:hover:bg-[#333] transition font-bold">
+                <i class="ph ph-gear text-primary dark:text-accent text-xl"></i> إدارة الفئات
+            </button>
+        </div>
+    </div>
+
+    <!-- ================= نافذة الإضافة/التعديل ================= -->
+    <div id="addModal" class="fixed inset-0 bg-black/50 z-50 hidden items-end justify-center" onclick="if(event.target===this)closeModal()">
+        <div class="bg-white dark:bg-[#1a1a1a] w-full max-w-lg rounded-t-3xl max-h-[85vh] overflow-y-auto border border-black dark:border-gray-800 modal-enter">
+            <form id="addForm" onsubmit="saveItem(event)">
+                <div class="p-4 border-b border-black dark:border-gray-800 flex justify-between items-center sticky top-0 bg-white dark:bg-[#1a1a1a] z-10 rounded-t-3xl">
+                    <h3 id="modal-title" class="font-extrabold text-lg">إضافة ملاحظة</h3>
+                    <button type="button" onclick="closeModal()" class="w-8 h-8 rounded-lg border border-black dark:border-gray-700 flex items-center justify-center"><i class="ph ph-x"></i></button>
+                </div>
+                <input type="hidden" id="itemId" value="">
+                
+                <div class="p-4 space-y-3">
+                    <div>
+                        <label class="block text-sm font-bold mb-1.5">الفئة</label>
+                        <select id="itemCategory" class="w-full bg-gray-50 dark:bg-[#2a2a2a] border border-black dark:border-gray-700 text-gray-800 dark:text-white rounded-xl px-4 py-3 focus:outline-none focus:border-primary transition">
+                            <option value="">بدون فئة</option>
+                        </select>
+                        <button type="button" onclick="addNewCategory()" class="mt-1 text-xs text-primary dark:text-accent font-bold hover:underline">+ إضافة فئة جديدة</button>
+                    </div>
+
+                    <!-- حقول أساسية -->
+                    <div id="basicFields">
+                        <div>
+                            <label id="titleLabel" class="block text-sm font-bold mb-1.5">العنوان</label>
+                            <input type="text" id="itemTitle" placeholder="عنوان الملاحظة..." class="w-full bg-gray-50 dark:bg-[#2a2a2a] border border-black dark:border-gray-700 text-gray-800 dark:text-white rounded-xl px-4 py-3 focus:outline-none focus:border-primary transition">
+                        </div>
+                        <div id="contentField">
+                            <label class="block text-sm font-bold mb-1.5">المحتوى</label>
+                            <textarea id="itemContent" rows="6" class="w-full bg-gray-50 dark:bg-[#2a2a2a] border border-black dark:border-gray-700 text-gray-800 dark:text-white rounded-xl px-4 py-3 focus:outline-none focus:border-primary resize-none transition leading-relaxed"></textarea>
+                        </div>
+                        <div id="urlField">
+                            <label class="block text-sm font-bold mb-1.5">الرابط</label>
+                            <input type="url" id="itemUrl" placeholder="https://..." class="w-full bg-gray-50 dark:bg-[#2a2a2a] border border-black dark:border-gray-700 text-gray-800 dark:text-white rounded-xl px-4 py-3 focus:outline-none focus:border-primary transition" dir="ltr">
+                        </div>
+                    </div>
+
+                    <!-- حقول العمل -->
+                    <div id="workFields" style="display:none;">
+                        <div class="grid grid-cols-3 gap-2">
+                            <div>
+                                <label class="block text-sm font-bold mb-1.5">RM</label>
+                                <select id="workRm" class="w-full bg-gray-50 dark:bg-[#2a2a2a] border border-black dark:border-gray-700 text-gray-800 dark:text-white rounded-xl px-3 py-3 focus:outline-none focus:border-primary transition">
+                                    <option value="RM1">RM1</option><option value="RM2">RM2</option><option value="RM3">RM3</option><option value="RM4">RM4</option><option value="RM5">RM5</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold mb-1.5">ST</label>
+                                <select id="workSt" class="w-full bg-gray-50 dark:bg-[#2a2a2a] border border-black dark:border-gray-700 text-gray-800 dark:text-white rounded-xl px-3 py-3 focus:outline-none focus:border-primary transition"></select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold mb-1.5">RB/RD</label>
+                                <select id="workRbRd" onchange="updateCustomInputLabel(this.value)" class="w-full bg-gray-50 dark:bg-[#2a2a2a] border border-black dark:border-gray-700 text-gray-800 dark:text-white rounded-xl px-3 py-3 focus:outline-none focus:border-primary transition">
+                                    <option value="RB">RB</option><option value="RD">RD</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label id="customInputLabel" class="block text-sm font-bold mb-1.5">قيمة RB</label>
+                            <input type="text" id="workCustomInput" placeholder="القيمة..." class="w-full bg-gray-50 dark:bg-[#2a2a2a] border border-black dark:border-gray-700 text-gray-800 dark:text-white rounded-xl px-4 py-3 focus:outline-none focus:border-primary transition">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-1.5">العملية</label>
+                            <select id="workOperation" class="w-full bg-gray-50 dark:bg-[#2a2a2a] border border-black dark:border-gray-700 text-gray-800 dark:text-white rounded-xl px-4 py-3 focus:outline-none focus:border-primary transition">
+                                <option value="Notching">Notching</option><option value="Blanking">Blanking</option><option value="Bending">Bending</option><option value="Welding">Welding</option><option value="Assembly">Assembly</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-1.5">المرجع</label>
+                            <input type="text" id="workReference" placeholder="رقم المرجع..." class="w-full bg-gray-50 dark:bg-[#2a2a2a] border border-black dark:border-gray-700 text-gray-800 dark:text-white rounded-xl px-4 py-3 focus:outline-none focus:border-primary transition">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full bg-primary dark:bg-accent text-white dark:text-[#1a1a1a] font-extrabold py-3.5 rounded-xl border border-black hover:bg-primaryDark dark:hover:bg-accent/80 transition text-lg flex items-center justify-center gap-2">
+                        <i class="ph ph-check text-xl"></i> حفظ
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= نافذة القراءة ================= -->
+    <div id="viewModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white dark:bg-[#1a1a1a] w-full max-w-lg max-h-[90vh] rounded-3xl border border-black dark:border-gray-800 modal-enter flex flex-col overflow-hidden">
+            <div class="p-4 border-b border-black dark:border-gray-800 flex justify-between items-center shrink-0">
+                <h3 class="font-extrabold text-lg flex items-center gap-2">
+                    <span id="viewCategoryBadge" class="bg-primary dark:bg-accent text-white dark:text-[#1a1a1a] px-2 py-0.5 rounded text-[10px] font-bold" style="display:none;"></span>
+                    عرض الملاحظة
+                </h3>
+                <button onclick="closeViewModal()" class="w-8 h-8 rounded-lg border border-black dark:border-gray-700 flex items-center justify-center"><i class="ph ph-x"></i></button>
+            </div>
+            <input type="hidden" id="viewItemId">
+            <div class="p-4 flex-1 overflow-y-auto space-y-3">
+                <input type="text" id="viewTitle" class="w-full bg-gray-50 dark:bg-[#2a2a2a] border border-black dark:border-gray-700 text-gray-800 dark:text-white rounded-xl px-4 py-3 font-bold text-lg focus:outline-none focus:border-primary transition">
+                <textarea id="viewContent" class="w-full min-h-[200px] text-gray-700 dark:text-gray-300 bg-transparent border border-transparent focus:border-black dark:focus:border-gray-700 focus:bg-gray-50 dark:focus:bg-[#2a2a2a] rounded-lg p-2 outline-none resize-none leading-relaxed transition"></textarea>
+            </div>
+            <div class="p-4 border-t border-black dark:border-gray-800 flex gap-2 shrink-0">
+                <button onclick="copyViewContent()" class="flex-1 py-3 rounded-xl border border-black dark:border-gray-700 font-bold flex items-center justify-center gap-2 hover:bg-gray-100 dark:hover:bg-[#333] transition">
+                    <i class="ph ph-copy"></i> <span id="copyText">نسخ</span>
+                </button>
+                <button onclick="saveViewContent()" class="flex-1 py-3 rounded-xl bg-primary dark:bg-accent text-white dark:text-[#1a1a1a] font-bold border border-black flex items-center justify-center gap-2 hover:bg-primaryDark transition">
+                    <i class="ph ph-check"></i> حفظ التعديلات
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= نافذة إدارة الفئات ================= -->
+    <div id="settingsModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white dark:bg-[#1a1a1a] w-full max-w-lg max-h-[85vh] rounded-3xl border border-black dark:border-gray-800 modal-enter overflow-y-auto">
+            <div class="p-4 border-b border-black dark:border-gray-800 flex justify-between items-center sticky top-0 bg-white dark:bg-[#1a1a1a] z-10 rounded-t-3xl">
+                <h3 class="font-extrabold text-lg">إدارة الفئات</h3>
+                <button onclick="closeSettingsModal()" class="w-8 h-8 rounded-lg border border-black dark:border-gray-700 flex items-center justify-center"><i class="ph ph-x"></i></button>
+            </div>
+            <div class="p-4 space-y-3">
+                <div>
+                    <label class="block text-sm font-bold mb-1.5">القسم</label>
+                    <select id="settingsCategorySection" onchange="renderCategorySettings()" class="w-full bg-gray-50 dark:bg-[#2a2a2a] border border-black dark:border-gray-700 text-gray-800 dark:text-white rounded-xl px-4 py-3 focus:outline-none focus:border-primary transition">
+                        <option value="notes">ملاحظات</option>
+                        <option value="tasks">مهام</option>
+                        <option value="links">روابط</option>
+                        <option value="work">عمل</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold mb-1.5">إضافة فئة جديدة</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="newCategoryName" placeholder="اسم الفئة الجديدة..." class="flex-1 bg-gray-50 dark:bg-[#2a2a2a] border border-black dark:border-gray-700 text-gray-800 dark:text-white rounded-xl px-4 py-3 focus:outline-none focus:border-primary transition">
+                        <button onclick="addCategoryFromSettings()" class="bg-primary dark:bg-accent text-white dark:text-[#1a1a1a] font-bold px-4 py-3 rounded-xl border border-black hover:bg-primaryDark transition shrink-0">إضافة</button>
+                    </div>
+                    <p id="settingsMessage" class="text-xs mt-1 hidden"></p>
+                </div>
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-bold">الفئات الحالية</span>
+                        <span id="settingsCategoryCount" class="text-xs text-gray-500">0</span>
+                    </div>
+                    <div id="categoriesSettingsList" class="space-y-2 max-h-60 overflow-y-auto"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= نافذة التقويم ================= -->
+    <div id="calendarModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white dark:bg-[#1a1a1a] w-full max-w-sm rounded-3xl border border-black dark:border-gray-800 modal-enter">
+            <div class="p-4 border-b border-black dark:border-gray-800 flex justify-between items-center">
+                <h3 class="font-extrabold text-lg">التقويم</h3>
+                <button onclick="closeCalendarModal()" class="w-8 h-8 rounded-lg border border-black dark:border-gray-700 flex items-center justify-center"><i class="ph ph-x"></i></button>
+            </div>
+            <div class="p-4">
+                <div class="flex justify-between items-center mb-4">
+                    <button onclick="changeMonth(-1)" class="w-8 h-8 rounded-lg border border-black dark:border-gray-700 flex items-center justify-center"><i class="ph ph-caret-left"></i></button>
+                    <span id="cal-month-year" class="font-extrabold text-lg"></span>
+                    <button onclick="changeMonth(1)" class="w-8 h-8 rounded-lg border border-black dark:border-gray-700 flex items-center justify-center"><i class="ph ph-caret-right"></i></button>
+                </div>
+                <div class="grid grid-cols-7 gap-1 mb-2 text-center text-xs font-bold text-gray-500">
+                    <div>أحد</div><div>إثنين</div><div>ثلاثاء</div><div>أربعاء</div><div>خميس</div><div>جمعة</div><div>سبت</div>
+                </div>
+                <div id="calendar-grid" class="grid grid-cols-7 gap-1"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= التطبيق الرئيسي ================= -->
+    <script>
+        // ================= IndexedDB Helper =================
+        const DB_NAME = 'daftarAlinjazDB';
+        const DB_VERSION = 1;
+        const STORE_NAME = 'appData';
+
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME);
+                    }
+                };
+                request.onsuccess = (e) => resolve(e.target.result);
+                request.onerror = (e) => reject(e.target.error);
+            });
+        }
+
+        async function saveToIndexedDB(key, value) {
+            const db = await openDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                store.put(value, key);
+                tx.oncomplete = () => { db.close(); resolve(); };
+                tx.onerror = (e) => { db.close(); reject(e.target.error); };
+            });
+        }
+
+        async function loadFromIndexedDB(key) {
+            const db = await openDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readonly');
+                const store = tx.objectStore(STORE_NAME);
+                const request = store.get(key);
+                request.onsuccess = () => { db.close(); resolve(request.result); };
+                request.onerror = (e) => { db.close(); reject(e.target.error); };
+            });
+        }
+    </script>
+
+    <script type="module">
+        // ================= Firebase Setup =================
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js';
+        import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCqqQIey88U8Aqz3Jb_-sXIudzrEzPZPnI",
+            authDomain: "masarifi-4e451.firebaseapp.com",
+            projectId: "masarifi-4e451",
+            storageBucket: "masarifi-4e451.firebasestorage.app",
+            messagingSenderId: "792484875097",
+            appId: "1:792484875097:web:ed33c88f4da9322c121a48"
+        };
+
+        const firebaseApp = initializeApp(firebaseConfig);
+        const db = getFirestore(firebaseApp);
+        const cloudBasePath = 'daftar_alinjaz';
+        const cloudDocRefs = {
+            notes: doc(db, cloudBasePath, 'notes'),
+            tasks: doc(db, cloudBasePath, 'tasks'),
+            links: doc(db, cloudBasePath, 'links'),
+            work: doc(db, cloudBasePath, 'work'),
+            categories: doc(db, cloudBasePath, 'categories'),
+        };
+        let appHasStarted = false;
+        let cloudSaveTimer = null;
+        let lastSavedSection = null;
+
+        // ================= Helpers =================
+        function escapeHTML(str) {
+            if (!str) return '';
+            return str.replace(/[&<>'"]/g, function(tag) {
+                const chars = { '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' };
+                return chars[tag] || tag;
+            });
+        }
+
+        function formatURL(url) {
+            if (!url) return '';
+            if (!url.startsWith('http://') && !url.startsWith('https://')) { return 'https://' + url; }
+            return url;
+        }
+
+        // ================= ST Options =================
+        const stSelect = document.getElementById('workSt');
+        for (let i = 1; i <= 26; i++) {
+            let option = document.createElement('option');
+            option.value = `ST${i}`; option.text = `ST${i}`;
+            stSelect.appendChild(option);
+        }
+
+        function updateCustomInputLabel(value) {
+            document.getElementById('customInputLabel').innerText = `قيمة ${value}`;
+        }
+
+        // ================= State =================
+        let currentCategory = 'notes';
+        const sections = ['notes', 'tasks', 'links', 'work'];
+        const defaultCategories = {
+            notes: ['عام', 'أفكار', 'شخصي'],
+            tasks: ['اليوم', 'عمل', 'منزل'],
+            links: ['أدوات', 'مراجع', 'أخرى'],
+            work: ['عام', 'صيانة', 'إنتاج']
+        };
+
+        function getEmptyAppData() {
+            return {
+                notes: [],
+                tasks: [],
+                links: [],
+                work: [],
+                categories: JSON.parse(JSON.stringify(defaultCategories))
+            };
+        }
+
+        let appData = getEmptyAppData();
+
+        // ================= IndexedDB as Primary Storage (unlimited size!) =================
+        async function saveLocalData() {
+            try {
+                await saveToIndexedDB('productivityData', appData);
+                // Also save shiftStartDate to IndexedDB
+                if (shiftStartDate) {
+                    await saveToIndexedDB('shiftStartDate', shiftStartDate.toISOString());
+                }
+            } catch (error) {
+                console.error('فشل الحفظ في IndexedDB:', error);
+                // Fallback to localStorage for smaller data
+                try {
+                    localStorage.setItem('productivityData', JSON.stringify(appData));
+                } catch (e) {
+                    console.error('فشل الحفظ المحلي بالكامل:', e);
+                    alert('⚠️ تعذر حفظ البيانات. قد يكون التخزين ممتلئاً. حاول حذف بعض العناصر القديمة.');
+                }
+            }
+        }
+
+        async function saveData(options = {}) {
+            await saveLocalData();
+            if (appHasStarted && !options.skipCloud) {
+                scheduleCloudSave();
+            }
+        }
+
+        async function loadLocalData() {
+            try {
+                const data = await loadFromIndexedDB('productivityData');
+                if (data && typeof data === 'object') {
+                    return data;
+                }
+            } catch (error) {
+                console.error('فشل تحميل IndexedDB:', error);
+            }
+            // Fallback: try localStorage
+            try {
+                const raw = localStorage.getItem('productivityData');
+                const parsed = raw ? JSON.parse(raw) : null;
+                if (parsed && typeof parsed === 'object') return parsed;
+            } catch (e) {}
+            return getEmptyAppData();
+        }
+
+        // ================= Firebase Status =================
+        function setFirebaseStatus(message, type = 'info') {
+            const wrapper = document.getElementById('firebaseStatus');
+            const icon = document.getElementById('firebaseStatusIcon');
+            const dot = document.getElementById('firebaseStatusDot');
+            if (!wrapper || !icon || !dot) return;
+            wrapper.title = message;
+            wrapper.setAttribute('aria-label', message);
+            wrapper.className = 'relative w-10 h-10 rounded-xl bg-white/10 border border-black flex items-center justify-center text-white transition';
+            icon.className = 'ph ph-database text-xl transition-colors duration-300';
+            dot.className = 'absolute top-1.5 right-1.5 w-3 h-3 rounded-full border border-black transition-colors duration-300';
+            if (type === 'success') {
+                icon.classList.add('text-emerald-300');
+                dot.classList.add('bg-emerald-400');
+            } else if (type === 'error') {
+                icon.classList.add('text-rose-300');
+                dot.classList.add('bg-rose-500');
+            } else {
+                icon.classList.add('text-amber-300');
+                dot.classList.add('bg-amber-400', 'animate-pulse');
+            }
+        }
+
+        // ================= Load from Firebase (per-section docs) =================
+        async function loadDataFromCloud() {
+            setFirebaseStatus('جارٍ الاتصال بقاعدة البيانات...', 'info');
+            try {
+                let loadedAny = false;
+                for (const section of sections) {
+                    try {
+                        const snap = await getDoc(cloudDocRefs[section]);
+                        if (snap.exists()) {
+                            const cloudData = snap.data();
+                            if (cloudData && Array.isArray(cloudData.items)) {
+                                appData[section] = cloudData.items;
+                                loadedAny = true;
+                            }
+                        }
+                    } catch (e) { console.error('Firebase load section error (' + section + '):', e); }
+                }
+                // Load categories
+                try {
+                    const catSnap = await getDoc(cloudDocRefs['categories']);
+                    if (catSnap.exists() && catSnap.data().categories) {
+                        appData.categories = catSnap.data().categories;
+                    }
+                } catch (e) { console.error('Firebase load categories error:', e); }
+
+                ensureAppDataShape();
+                await saveLocalData();
+
+                if (loadedAny) {
+                    setFirebaseStatus('متصل بقاعدة البيانات - تم تحميل البيانات من Firebase', 'success');
+                } else {
+                    // First time: push local data up
+                    await syncAllSectionsToCloud();
+                    setFirebaseStatus('متصل بقاعدة البيانات - تم إنشاء مستندات جديدة', 'success');
+                }
+                return true;
+            } catch (error) {
+                console.error('Firebase load error:', error);
+                setFirebaseStatus('غير متصل - العمل محلياً فقط', 'error');
+                return false;
+            }
+        }
+
+        function estimateSectionSize(section) {
+            try { return new Blob([JSON.stringify(appData[section])]).size; } catch(e) { return 0; }
+        }
+
+        function measureTotalDataSize() {
+            let total = 0;
+            for (const s of sections) { total += estimateSectionSize(s); }
+            return total;
+        }
+
+        async function syncAllSectionsToCloud() {
+            ensureAppDataShape();
+            for (const section of sections) {
+                try {
+                    const sectionSize = estimateSectionSize(section);
+                    if (sectionSize > 900000) {
+                        console.warn('Section ' + section + ' is ' + (sectionSize/1024).toFixed(0) + ' KB — near Firestore limit, syncing anyway');
+                    }
+                    await setDoc(cloudDocRefs[section], {
+                        items: appData[section],
+                        updatedAt: serverTimestamp()
+                    }, { merge: true });
+                } catch (e) {
+                    console.error('Firebase sync section error (' + section + '):', e);
+                }
+            }
+            // Sync categories
+            try {
+                await setDoc(cloudDocRefs['categories'], {
+                    categories: appData.categories,
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
+            } catch (e) { console.error('Firebase sync categories error:', e); }
+
+            setFirebaseStatus('تم حفظ التغييرات في Firebase (' + (measureTotalDataSize()/1024).toFixed(0) + ' KB)', 'success');
+        }
+
+        async function syncDataToCloud() {
+            if (!appHasStarted) return;
+            try {
+                setFirebaseStatus('جارٍ حفظ التغييرات في Firebase...', 'info');
+                await syncAllSectionsToCloud();
+            } catch (error) {
+                console.error('Firebase save error:', error);
+                setFirebaseStatus('فشل الحفظ في Firebase - تم الحفظ محلياً فقط', 'error');
+            }
+        }
+
+        function scheduleCloudSave() {
+            clearTimeout(cloudSaveTimer);
+            cloudSaveTimer = setTimeout(syncDataToCloud, 700);
+        }
+
+        function ensureAppDataShape() {
+            if (!appData || typeof appData !== 'object') { appData = getEmptyAppData(); }
+            if (Array.isArray(appData.projects) && !Array.isArray(appData.work)) { appData.work = appData.projects; }
+            delete appData.projects;
+            sections.forEach(section => {
+                if (!Array.isArray(appData[section])) { appData[section] = []; }
+            });
+            if (!appData.categories || typeof appData.categories !== 'object') { appData.categories = JSON.parse(JSON.stringify(defaultCategories)); }
+            sections.forEach(section => {
+                if (!Array.isArray(appData.categories[section])) { appData.categories[section] = [...defaultCategories[section]]; }
+            });
+        }
+
+        // ================= Categories =================
+        function getSectionCategories(section) {
+            if (!appData.categories) appData.categories = {};
+            if (!Array.isArray(appData.categories[section])) { appData.categories[section] = []; }
+            return appData.categories[section];
+        }
+
+        function createOption(value, text) {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = text;
+            return option;
+        }
+
+        function populateCategoryFilters() {
+            const categories = getSectionCategories(currentCategory);
+            const filterSelect = document.getElementById('categoryFilter');
+            if (filterSelect) {
+                const oldFilterValue = filterSelect.value;
+                filterSelect.innerHTML = '';
+                filterSelect.appendChild(createOption('all', 'كل الفئات'));
+                categories.forEach(cat => filterSelect.appendChild(createOption(cat, cat)));
+                filterSelect.value = categories.includes(oldFilterValue) ? oldFilterValue : 'all';
+            }
+            const addSelect = document.getElementById('itemCategory');
+            if (addSelect) {
+                const oldAddValue = addSelect.value;
+                addSelect.innerHTML = '';
+                addSelect.appendChild(createOption('', 'بدون فئة'));
+                categories.forEach(cat => addSelect.appendChild(createOption(cat, cat)));
+                addSelect.value = categories.includes(oldAddValue) ? oldAddValue : '';
+            }
+        }
+
+        function addNewCategory() {
+            openSettingsModal(currentCategory);
+            setTimeout(() => {
+                const input = document.getElementById('newCategoryName');
+                if (input) input.focus();
+            }, 80);
+        }
+
+        function closeSettingsModal() {
+            const modal = document.getElementById('settingsModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function openSettingsModal(section) {
+            closeSidebar();
+            const modal = document.getElementById('settingsModal');
+            const select = document.getElementById('settingsCategorySection');
+            const input = document.getElementById('newCategoryName');
+            const msg = document.getElementById('settingsMessage');
+            if (select && sections.includes(section)) { select.value = section; }
+            if (input) input.value = '';
+            if (msg) { msg.classList.add('hidden'); msg.textContent = ''; }
+            renderCategorySettings();
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function showSettingsMessage(text, type = 'success') {
+            const msg = document.getElementById('settingsMessage');
+            if (!msg) return;
+            msg.textContent = text;
+            msg.classList.remove('hidden', 'text-rose-600', 'dark:text-rose-400', 'text-primary', 'dark:text-accent');
+            if (type === 'error') { msg.classList.add('text-rose-600', 'dark:text-rose-400'); }
+            else { msg.classList.add('text-primary', 'dark:text-accent'); }
+        }
+
+        function addCategoryToSection(section, name) {
+            const safeName = String(name || '').trim();
+            if (!safeName) { return { ok: false, message: 'اكتب اسم الفئة أولاً.' }; }
+            const categories = getSectionCategories(section);
+            const exists = categories.some(cat => cat.toLowerCase() === safeName.toLowerCase());
+            if (exists) { return { ok: false, message: 'هذه الفئة موجودة مسبقاً.' }; }
+            categories.push(safeName);
+            saveData();
+            return { ok: true, message: 'تمت إضافة الفئة بنجاح.', name: safeName };
+        }
+
+        function addCategoryFromSettings() {
+            const select = document.getElementById('settingsCategorySection');
+            const input = document.getElementById('newCategoryName');
+            const section = select ? select.value : currentCategory;
+            const result = addCategoryToSection(section, input ? input.value : '');
+            showSettingsMessage(result.message, result.ok ? 'success' : 'error');
+            if (!result.ok) return;
+            if (input) input.value = '';
+            if (section === currentCategory) {
+                populateCategoryFilters();
+                const itemCategory = document.getElementById('itemCategory');
+                if (itemCategory) itemCategory.value = result.name;
+                renderData();
+            }
+            renderCategorySettings();
+        }
+
+        function renderCategorySettings() {
+            const select = document.getElementById('settingsCategorySection');
+            const list = document.getElementById('categoriesSettingsList');
+            const countBadge = document.getElementById('settingsCategoryCount');
+            if (!select || !list) return;
+            const section = select.value || currentCategory;
+            const categories = getSectionCategories(section);
+            list.innerHTML = '';
+            if (countBadge) countBadge.textContent = categories.length;
+            if (categories.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'text-center text-gray-500 dark:text-gray-400 border border-dashed border-gray-300 dark:border-gray-700 rounded-xl py-6 text-sm font-semibold';
+                empty.textContent = 'لا توجد فئات في هذا القسم.';
+                list.appendChild(empty);
+                return;
+            }
+            categories.forEach(cat => {
+                const usedCount = appData[section].filter(item => item && item.category === cat).length;
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between gap-2 p-3 rounded-xl border border-black dark:border-gray-700 bg-white dark:bg-[#2a2a2a]';
+                const info = document.createElement('div'); info.className = 'min-w-0';
+                const name = document.createElement('div'); name.className = 'font-bold text-gray-800 dark:text-white truncate'; name.textContent = cat;
+                const meta = document.createElement('div'); meta.className = 'text-[11px] text-gray-500 dark:text-gray-400 mt-0.5'; meta.textContent = usedCount + ' عنصر مرتبط';
+                info.appendChild(name); info.appendChild(meta);
+                const actions = document.createElement('div'); actions.className = 'flex gap-1.5 shrink-0';
+                const renameBtn = document.createElement('button'); renameBtn.type = 'button'; renameBtn.className = 'w-8 h-8 rounded-lg border border-black dark:border-gray-600 bg-gray-50 dark:bg-[#1e1e1e] text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-accent transition flex items-center justify-center'; renameBtn.innerHTML = '<i class="ph ph-pencil-simple"></i>'; renameBtn.title = 'تعديل اسم الفئة'; renameBtn.onclick = () => renameCategory(section, cat);
+                const deleteBtn = document.createElement('button'); deleteBtn.type = 'button'; deleteBtn.className = 'w-8 h-8 rounded-lg border border-black dark:border-gray-600 bg-gray-50 dark:bg-[#1e1e1e] text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition flex items-center justify-center'; deleteBtn.innerHTML = '<i class="ph ph-trash"></i>'; deleteBtn.title = 'حذف الفئة'; deleteBtn.onclick = () => deleteCategory(section, cat);
+                actions.appendChild(renameBtn); actions.appendChild(deleteBtn);
+                row.appendChild(info); row.appendChild(actions);
+                list.appendChild(row);
+            });
+        }
+
+        function renameCategory(section, oldName) {
+            const newName = prompt('أدخل الاسم الجديد للفئة:', oldName);
+            if (newName === null) return;
+            const safeName = newName.trim();
+            if (!safeName) { showSettingsMessage('اسم الفئة لا يمكن أن يكون فارغاً.', 'error'); return; }
+            if (safeName.toLowerCase() === oldName.toLowerCase()) return;
+            const categories = getSectionCategories(section);
+            const exists = categories.some(cat => cat.toLowerCase() === safeName.toLowerCase());
+            if (exists) { showSettingsMessage('توجد فئة بهذا الاسم مسبقاً.', 'error'); return; }
+            appData.categories[section] = categories.map(cat => cat === oldName ? safeName : cat);
+            appData[section].forEach(item => { if (item && item.category === oldName) item.category = safeName; });
+            saveData();
+            if (section === currentCategory) { populateCategoryFilters(); document.getElementById('categoryFilter').value = 'all'; renderData(); }
+            renderCategorySettings();
+            showSettingsMessage('تم تعديل اسم الفئة بنجاح.');
+        }
+
+        function deleteCategory(section, catName) {
+            const usedCount = appData[section].filter(item => item && item.category === catName).length;
+            const message = usedCount > 0
+                ? `هل تريد حذف الفئة "${catName}"؟ سيتم نقل ${usedCount} عنصر إلى بدون فئة.`
+                : `هل تريد حذف الفئة "${catName}"؟`;
+            if (!confirm(message)) return;
+            appData.categories[section] = getSectionCategories(section).filter(cat => cat !== catName);
+            appData[section].forEach(item => { if (item && item.category === catName) item.category = ''; });
+            saveData();
+            if (section === currentCategory) { populateCategoryFilters(); document.getElementById('categoryFilter').value = 'all'; renderData(); }
+            renderCategorySettings();
+            showSettingsMessage('تم حذف الفئة بنجاح.');
+        }
+
+        // ================= Navigation =================
+        const categoryInfo = {
+            notes: { title: 'الملاحظات', icon: 'ph-note-pencil' },
+            tasks: { title: 'المهام', icon: 'ph-check-square' },
+            links: { title: 'الروابط', icon: 'ph-link' },
+            work: { title: 'العمل', icon: 'ph-briefcase' }
+        };
+
+        function switchCategory(cat) {
+            currentCategory = cat;
+            document.getElementById('main-header-title').innerHTML = `<i class="ph-fill ${categoryInfo[cat].icon} text-primary dark:text-accent"></i> <span>${categoryInfo[cat].title}</span>`;
+            populateCategoryFilters();
+            document.getElementById('categoryFilter').value = 'all';
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                const iconContainer = btn.querySelector('.icon-container');
+                const text = btn.querySelector('span');
+                const icon = iconContainer.querySelector('i');
+                if (btn.dataset.cat === cat) {
+                    iconContainer.classList.add('bg-white/20', 'border-black', 'text-white');
+                    iconContainer.classList.remove('border-transparent', 'text-white/60');
+                    text.classList.add('text-white'); text.classList.remove('text-white/60');
+                    icon.classList.add('ph-fill');
+                } else {
+                    iconContainer.classList.remove('bg-white/20', 'border-black', 'text-white');
+                    iconContainer.classList.add('border-transparent', 'text-white/60');
+                    text.classList.remove('text-white'); text.classList.add('text-white/60');
+                    icon.classList.remove('ph-fill');
+                }
+            });
+            renderData();
+        }
+
+        function openSidebar() { document.getElementById('sidebarOverlay').classList.remove('hidden'); setTimeout(() => { document.getElementById('sidebarOverlay').classList.remove('opacity-0'); document.getElementById('sidebarMenu').classList.remove('translate-x-full'); }, 10); }
+        function closeSidebar() { document.getElementById('sidebarOverlay').classList.add('opacity-0'); document.getElementById('sidebarMenu').classList.add('translate-x-full'); setTimeout(() => { document.getElementById('sidebarOverlay').classList.add('hidden'); }, 300); }
+
+        // ================= Render =================
+        function renderData() {
+            const container = document.getElementById('content-area');
+            container.innerHTML = '';
+            let data = appData[currentCategory];
+            const filterValue = document.getElementById('categoryFilter').value;
+            if (filterValue !== 'all') { data = data.filter(item => item.category === filterValue); }
+            const isDark = document.documentElement.classList.contains('dark');
+            document.getElementById('item-count-badge').innerText = `${data.length}`;
+            if (data.length === 0) {
+                container.innerHTML = `<div class="text-center text-gray-500 py-20"><p class="font-bold">لا يوجد عناصر هنا.</p></div>`;
+                return;
+            }
+            data.forEach((item, index) => {
+                const originalIndex = appData[currentCategory].indexOf(item);
+                const safeTitle = escapeHTML(item.title);
+                const safeContent = escapeHTML(item.content);
+                const safeUrl = escapeHTML(item.url || '');
+                const safeDate = item.date || '';
+                const catBadgeHtml = item.category ? `<span class="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded text-[10px] font-bold border border-black dark:border-gray-600 mb-1 inline-block shrink-0">${escapeHTML(item.category)}</span>` : '';
+                let cardHTML = '';
+                if (currentCategory === 'tasks') {
+                    const bgTask = item.completed ? (isDark ? 'bg-[#1e1e1e]/60 border-gray-800' : 'bg-gray-100 border-gray-300 text-gray-500') : (isDark ? 'bg-[#1e1e1e] border-gray-700' : 'bg-white border-black');
+                    const textTask = item.completed ? 'line-through text-gray-400' : (isDark ? 'text-gray-100' : 'text-gray-800');
+                    const iconTask = item.completed ? 'ph-check-square-offset text-gray-400' : 'ph-square text-primary dark:text-accent';
+                    cardHTML = `<div class="flex items-center gap-3 p-3.5 rounded-xl border ${bgTask} shadow-sm transition-all"><button onclick="toggleTask(${originalIndex})" class="text-2xl hover:scale-110 active:scale-90 transition-transform shrink-0"><i class="ph-fill ${iconTask}"></i></button><div class="flex-1 flex flex-col min-w-0" onclick="toggleTask(${originalIndex})">${item.category ? `<div class="mb-0.5">${catBadgeHtml}</div>` : ''}<span class="font-bold text-[15px] ${textTask} cursor-pointer select-none truncate">${safeTitle}</span></div><div class="flex gap-2 shrink-0 border-l border-gray-300 dark:border-gray-700 pl-2"><button onclick="editItem(${originalIndex})" class="text-gray-400 hover:text-blue-500 transition"><i class="ph ph-pencil-simple text-lg"></i></button><button onclick="deleteItem(${originalIndex})" class="text-gray-400 hover:text-rose-500 transition"><i class="ph ph-trash text-lg"></i></button></div></div>`;
+                } else if (currentCategory === 'links') {
+                    const bgLink = isDark ? 'bg-[#1e1e1e] border-gray-700 hover:border-blue-500/50' : 'bg-blue-50/50 border-black hover:bg-blue-50';
+                    cardHTML = `<div class="flex flex-col p-4 rounded-xl border ${bgLink} shadow-sm transition-all cursor-pointer relative group" onclick="window.open('${formatURL(safeUrl)}', '_blank')"><div class="flex justify-between items-start mb-2"><div class="flex flex-col gap-1.5 max-w-[80%] min-w-0">${item.category ? `<div>${catBadgeHtml}</div>` : ''}<div class="flex items-center gap-2"><div class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0 border border-black dark:border-blue-700/50"><i class="ph ph-link text-blue-600 dark:text-blue-400 font-bold"></i></div><h3 class="font-bold text-gray-800 dark:text-gray-100 text-[15px] truncate">${safeTitle}</h3></div></div><div class="flex gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0" onclick="event.stopPropagation()"><button onclick="editItem(${originalIndex})" class="p-1.5 text-gray-400 hover:text-primary bg-white dark:bg-[#2a2a2a] border border-black dark:border-gray-600 rounded-lg"><i class="ph ph-pencil-simple"></i></button><button onclick="deleteItem(${originalIndex})" class="p-1.5 text-gray-400 hover:text-rose-500 bg-white dark:bg-[#2a2a2a] border border-black dark:border-gray-600 rounded-lg"><i class="ph ph-trash"></i></button></div></div><p class="text-[12px] text-blue-600 dark:text-blue-400 font-mono truncate bg-white/50 dark:bg-black/20 p-2 rounded-lg border border-black/10 dark:border-gray-800 mt-1" dir="ltr">${safeUrl || safeContent}</p></div>`;
+                } else if (currentCategory === 'work') {
+                    const bgWork = isDark ? 'bg-[#1e1e1e] border-gray-700' : 'bg-white border-black';
+                    const rm = escapeHTML(item.rm || 'RM1'); const st = escapeHTML(item.st || 'ST1'); const rbrd = escapeHTML(item.rbrd || 'RB');
+                    const customInput = escapeHTML(item.customInput || '-'); const operation = escapeHTML(item.operation || 'غير محدد'); const reference = escapeHTML(item.reference || 'لا يوجد');
+                    cardHTML = `<div class="flex flex-col p-4 rounded-xl border ${bgWork} shadow-sm transition-all hover:shadow-md"><div class="flex justify-between items-start mb-3"><div class="flex flex-col gap-1.5 min-w-0">${item.category ? `<div>${catBadgeHtml}</div>` : ''}<div class="flex flex-wrap gap-1.5" dir="ltr"><span class="bg-primary dark:bg-accent text-white dark:text-[#1a1a1a] px-2 py-0.5 rounded font-bold text-[12px] border border-black">${rm}</span><span class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-0.5 rounded font-bold text-[12px] border border-black dark:border-gray-600">${st}</span><span class="bg-amber-200 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded font-bold text-[12px] border border-black dark:border-amber-700">${rbrd}</span></div></div><div class="flex gap-1.5 shrink-0" onclick="event.stopPropagation()"><button onclick="editItem(${originalIndex})" class="p-1.5 text-gray-400 hover:text-primary bg-gray-50 dark:bg-[#2a2a2a] border border-black dark:border-gray-600 rounded-lg"><i class="ph ph-pencil-simple"></i></button><button onclick="deleteItem(${originalIndex})" class="p-1.5 text-gray-400 hover:text-rose-500 bg-gray-50 dark:bg-[#2a2a2a] border border-black dark:border-gray-600 rounded-lg"><i class="ph ph-trash"></i></button></div></div><div class="bg-gray-50 dark:bg-[#2a2a2a] p-3 rounded-lg border border-black/10 dark:border-gray-700" dir="ltr"><div class="flex items-center gap-2 mb-2 text-primary dark:text-accent"><i class="ph-fill ph-gear text-lg"></i> <h3 class="font-bold text-[15px]">${operation}</h3></div><div class="space-y-1 pl-6"><p class="text-[12px] text-gray-700 dark:text-gray-300 font-mono flex gap-2"><span class="text-gray-400 dark:text-gray-500 text-[10px] w-8">${rbrd}:</span> <span class="truncate">${customInput}</span></p><p class="text-[12px] text-gray-700 dark:text-gray-300 font-mono flex gap-2"><span class="text-gray-400 dark:text-gray-500 text-[10px] w-8">REF:</span> <span class="truncate">${reference}</span></p></div></div><div class="text-left mt-2"><span class="text-[10px] font-bold text-gray-400"><i class="ph ph-clock"></i> ${safeDate}</span></div></div>`;
+                } else {
+                    // Notes category - truncate long content in cards
+                    const truncatedContent = item.content && item.content.length > 300 ? escapeHTML(item.content.substring(0, 300)) + '...' : safeContent;
+                    const bgNote = isDark ? 'bg-[#1e1e1e] border-gray-700' : 'bg-[#fffdf0] border-black';
+                    cardHTML = `<div class="flex flex-col p-4 rounded-xl border ${bgNote} shadow-sm transition-all cursor-pointer hover:shadow-md" onclick="openViewModal(${originalIndex})"><div class="flex justify-between items-start mb-2 gap-2"><div class="flex flex-col min-w-0">${item.category ? `<div>${catBadgeHtml}</div>` : ''}<h3 class="font-bold text-gray-900 dark:text-gray-100 text-[16px]">${safeTitle}</h3></div><div class="flex gap-1.5 shrink-0" onclick="event.stopPropagation()"><button onclick="editItem(${originalIndex})" class="p-1.5 text-gray-400 hover:text-primary transition"><i class="ph ph-pencil-simple"></i></button><button onclick="deleteItem(${originalIndex})" class="p-1.5 text-gray-400 hover:text-rose-500 transition"><i class="ph ph-trash"></i></button></div></div><p class="text-[13px] text-gray-600 dark:text-gray-400 line-clamp-3 leading-relaxed mb-3">${truncatedContent}</p><div class="text-left border-t border-black/10 dark:border-gray-800 pt-2"><span class="text-[10px] font-bold text-gray-400"><i class="ph ph-clock"></i> ${safeDate}</span></div></div>`;
+                }
+                container.innerHTML += cardHTML;
+            });
+        }
+
+        // ================= Add / Edit / Delete =================
+        function openModal() {
+            document.getElementById('addForm').reset();
+            document.getElementById('itemId').value = '';
+            document.getElementById('modal-title').innerText = `إضافة ${categoryInfo[currentCategory].title}`;
+            populateCategoryFilters();
+            const basicFields = document.getElementById('basicFields'); const titleLabel = document.getElementById('titleLabel'); const titleInput = document.getElementById('itemTitle'); const contentField = document.getElementById('contentField'); const itemContent = document.getElementById('itemContent'); const urlField = document.getElementById('urlField'); const urlInput = document.getElementById('itemUrl'); const workFields = document.getElementById('workFields'); const workReference = document.getElementById('workReference');
+            updateCustomInputLabel(document.getElementById('workRbRd').value);
+            titleInput.removeAttribute('required'); itemContent.removeAttribute('required'); urlInput.removeAttribute('required'); workReference.removeAttribute('required');
+            if (currentCategory === 'work') { basicFields.style.display = 'none'; workFields.style.display = 'block'; workReference.setAttribute('required', 'true'); }
+            else {
+                basicFields.style.display = 'block'; workFields.style.display = 'none';
+                if (currentCategory === 'tasks') { titleLabel.innerText = 'مهمة جديدة'; titleInput.placeholder = 'مثال: شراء احتياجات المنزل...'; contentField.style.display = 'none'; urlField.style.display = 'none'; titleInput.setAttribute('required', 'true'); }
+                else if (currentCategory === 'links') { titleLabel.innerText = 'عنوان الموقع'; titleInput.placeholder = 'مثال: محرك بحث جوجل'; contentField.style.display = 'none'; urlField.style.display = 'block'; titleInput.setAttribute('required', 'true'); urlInput.setAttribute('required', 'true'); }
+                else { titleLabel.innerText = 'العنوان'; titleInput.placeholder = 'عنوان الملاحظة...'; contentField.style.display = 'block'; urlField.style.display = 'none'; titleInput.setAttribute('required', 'true'); itemContent.setAttribute('required', 'true'); }
+            }
+            document.getElementById('addModal').classList.remove('hidden'); document.getElementById('addModal').classList.add('flex');
+        }
+
+        function closeModal() { document.getElementById('addModal').classList.add('hidden'); document.getElementById('addModal').classList.remove('flex'); }
+
+        function saveItem(e) {
+            e.preventDefault();
+            const id = document.getElementById('itemId').value;
+            let newItem = { completed: false, date: new Date().toLocaleDateString('en-GB'), category: document.getElementById('itemCategory').value };
+            if (currentCategory === 'work') {
+                newItem.rm = document.getElementById('workRm').value; newItem.st = document.getElementById('workSt').value; newItem.rbrd = document.getElementById('workRbRd').value; newItem.customInput = document.getElementById('workCustomInput').value; newItem.operation = document.getElementById('workOperation').value; newItem.reference = document.getElementById('workReference').value; newItem.title = `${newItem.rm} - ${newItem.st}`; newItem.content = newItem.reference;
+            } else {
+                newItem.title = document.getElementById('itemTitle').value; newItem.content = document.getElementById('itemContent').value; newItem.url = document.getElementById('itemUrl').value;
+            }
+            if (id === '') { appData[currentCategory].unshift(newItem); }
+            else { newItem.completed = appData[currentCategory][id].completed; newItem.date = appData[currentCategory][id].date || newItem.date; appData[currentCategory][id] = newItem; }
+            saveData(); closeModal(); renderData();
+        }
+
+        function deleteItem(index) { if(confirm('هل أنت متأكد من الحذف؟')) { appData[currentCategory].splice(index, 1); saveData(); renderData(); } }
+
+        function editItem(index) {
+            openModal(); const item = appData[currentCategory][index]; document.getElementById('itemId').value = index; document.getElementById('itemCategory').value = item.category || '';
+            if (currentCategory === 'work') { document.getElementById('workRm').value = item.rm || 'RM1'; document.getElementById('workSt').value = item.st || 'ST1'; document.getElementById('workRbRd').value = item.rbrd || 'RB'; document.getElementById('workCustomInput').value = item.customInput || ''; document.getElementById('workOperation').value = item.operation || 'Notching'; document.getElementById('workReference').value = item.reference || ''; updateCustomInputLabel(item.rbrd || 'RB'); }
+            else { document.getElementById('itemTitle').value = item.title; document.getElementById('itemContent').value = item.content || ''; document.getElementById('itemUrl').value = item.url || ''; }
+        }
+
+        function toggleTask(index) { appData['tasks'][index].completed = !appData['tasks'][index].completed; saveData(); renderData(); }
+
+        // ================= View Modal =================
+        function openViewModal(index) {
+            const item = appData[currentCategory][index]; document.getElementById('viewItemId').value = index; document.getElementById('viewTitle').value = item.title; document.getElementById('viewContent').value = item.content;
+            const badge = document.getElementById('viewCategoryBadge'); if(item.category) { badge.style.display = 'inline-block'; badge.innerText = item.category; } else { badge.style.display = 'none'; }
+            document.getElementById('viewModal').classList.remove('hidden'); document.getElementById('viewModal').classList.add('flex');
+        }
+
+        function closeViewModal() { document.getElementById('viewModal').classList.add('hidden'); document.getElementById('viewModal').classList.remove('flex'); }
+
+        function saveViewContent() {
+            const index = document.getElementById('viewItemId').value; appData[currentCategory][index].title = document.getElementById('viewTitle').value; appData[currentCategory][index].content = document.getElementById('viewContent').value;
+            saveData(); renderData(); closeViewModal();
+        }
+
+        async function copyViewContent() {
+            const textToCopy = document.getElementById('viewContent').value; const btnText = document.getElementById('copyText');
+            try {
+                if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(textToCopy); }
+                else { const tempTextArea = document.createElement("textarea"); tempTextArea.value = textToCopy; document.body.appendChild(tempTextArea); tempTextArea.select(); document.execCommand('copy'); document.body.removeChild(tempTextArea); }
+                if (btnText) { btnText.innerText = 'تم!'; setTimeout(() => { btnText.innerText = 'نسخ'; }, 2000); }
+            } catch (err) { if (btnText) { btnText.innerText = 'فشل النسخ'; setTimeout(() => { btnText.innerText = 'نسخ'; }, 2000); } }
+        }
+
+        // ================= Calendar =================
+        let navMonth, navYear, shiftStartDate;
+        async function initCalendar() {
+            const date = new Date(); navMonth = date.getMonth(); navYear = date.getFullYear();
+            try { const savedDate = await loadFromIndexedDB('shiftStartDate'); shiftStartDate = savedDate ? new Date(savedDate) : null; }
+            catch(e) { shiftStartDate = null; }
+        }
+
+        function openCalendarModal() { document.getElementById('calendarModal').classList.remove('hidden'); document.getElementById('calendarModal').classList.add('flex'); renderCalendar(); }
+        function closeCalendarModal() { document.getElementById('calendarModal').classList.add('hidden'); document.getElementById('calendarModal').classList.remove('flex'); }
+        function changeMonth(step) { navMonth += step; if(navMonth > 11) { navMonth = 0; navYear++; } if(navMonth < 0) { navMonth = 11; navYear--; } renderCalendar(); }
+
+        function renderCalendar() {
+            const grid = document.getElementById('calendar-grid'); grid.innerHTML = '';
+            const monthsAr = ["جانفي", "فيفري", "مارس", "أفريل", "ماي", "جوان", "جويلية", "أوت", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+            document.getElementById('cal-month-year').innerText = `${monthsAr[navMonth]} ${navYear}`;
+            const firstDay = new Date(navYear, navMonth, 1).getDay(); const daysInMonth = new Date(navYear, navMonth + 1, 0).getDate();
+            const isDark = document.documentElement.classList.contains('dark');
+            for(let i=0; i<firstDay; i++) grid.innerHTML += `<div></div>`;
+            for(let i=1; i<=daysInMonth; i++) {
+                let cellDate = new Date(navYear, navMonth, i); cellDate.setHours(0,0,0,0);
+                let bgColor = isDark ? 'bg-[#2a2a2a]' : 'bg-white'; let textColor = isDark ? 'text-gray-300' : 'text-gray-800';
+                let customClass = 'rounded-xl border border-black dark:border-gray-700';
+                if (shiftStartDate) {
+                    let start = new Date(shiftStartDate); start.setHours(0,0,0,0);
+                    let diffDays = Math.floor((cellDate.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+                    let cycle = ((Math.floor(diffDays / 2) % 2) + 2) % 2;
+                    if (cycle === 0) { bgColor = 'bg-primary'; textColor = 'text-white font-bold'; }
+                    else { bgColor = isDark ? 'bg-rose-900/40' : 'bg-rose-200'; textColor = isDark ? 'text-rose-300' : 'text-rose-800'; }
+                }
+                let isToday = (cellDate.getTime() === new Date().setHours(0,0,0,0));
+                if(isToday && !shiftStartDate) customClass += ' border-primary text-primary dark:border-accent dark:text-accent font-bold bg-primary/10';
+                grid.innerHTML += `<div onclick="setShiftStart(${navYear}, ${navMonth}, ${i})" class="aspect-square flex items-center justify-center cursor-pointer text-sm transition-transform active:scale-90 ${bgColor} ${textColor} ${customClass}">${i}</div>`;
+            }
+        }
+        async function setShiftStart(y, m, d) { shiftStartDate = new Date(y, m, d); await saveToIndexedDB('shiftStartDate', shiftStartDate.toISOString()); renderCalendar(); }
+
+        // ================= Theme =================
+        function toggleTheme() {
+            const html = document.documentElement;
+            if (html.classList.contains('dark')) { html.classList.remove('dark'); html.classList.add('light'); localStorage.setItem('theme', 'light'); document.getElementById('themeIcon').className = 'ph ph-moon text-xl'; }
+            else { html.classList.add('dark'); html.classList.remove('light'); localStorage.setItem('theme', 'dark'); document.getElementById('themeIcon').className = 'ph ph-sun text-xl'; }
+            renderData();
+        }
+
+        function initTheme() {
+            const saved = localStorage.getItem('theme');
+            if (saved === 'dark') { document.documentElement.classList.add('dark'); document.documentElement.classList.remove('light'); document.getElementById('themeIcon').className = 'ph ph-sun text-xl'; }
+            else { document.documentElement.classList.remove('dark'); document.documentElement.classList.add('light'); document.getElementById('themeIcon').className = 'ph ph-moon text-xl'; }
+        }
+
+        // ================= Init =================
+        async function initApp() {
+            initTheme();
+            document.getElementById('header-date-badge').innerText = new Date().getDate();
+            await initCalendar();
+
+            // === ترحيل البيانات القديمة من localStorage إلى IndexedDB ===
+            await migrateOldData();
+
+            appData = await loadLocalData();
+            ensureAppDataShape();
+            await loadDataFromCloud();
+            appHasStarted = true;
+            switchCategory(currentCategory);
+            registerServiceWorker();
+            setupInstallPrompt();
+        }
+
+        async function migrateOldData() {
+            // هل توجد بيانات قديمة في localStorage لم تُهاجر بعد؟
+            const rawOld = localStorage.getItem('productivityData');
+            if (!rawOld) return; // لا توجد بيانات قديمة
+
+            const migratedKey = 'dataMigratedToIDB';
+            const alreadyMigrated = localStorage.getItem(migratedKey);
+            if (alreadyMigrated === 'v2') return; // تمت الهجرة مسبقاً
+
+            // هل IndexedDB فارغ أو جديد؟
+            let idbData = null;
+            try {
+                idbData = await loadFromIndexedDB('productivityData');
+            } catch (e) {}
+
+            // إذا IndexedDB فارغ أو بياناته أقل، انقل من localStorage
+            const idbHasData = idbData && typeof idbData === 'object' &&
+                (Array.isArray(idbData.notes) && idbData.notes.length > 0) ||
+                (Array.isArray(idbData.tasks) && idbData.tasks.length > 0) ||
+                (Array.isArray(idbData.links) && idbData.links.length > 0) ||
+                (Array.isArray(idbData.work) && idbData.work.length > 0);
+
+            if (!idbHasData) {
+                try {
+                    const oldData = JSON.parse(rawOld);
+                    if (oldData && typeof oldData === 'object') {
+                        await saveToIndexedDB('productivityData', oldData);
+                        console.log('✅ تم ترحيل البيانات القديمة من localStorage إلى IndexedDB بنجاح');
+                    }
+                } catch (e) {
+                    console.error('⚠️ فشل ترحيل البيانات القديمة:', e);
+                }
+            }
+
+            localStorage.setItem(migratedKey, 'v2');
+        }
+
+        // ================= PWA - Service Worker =================
+        function registerServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('sw.js').catch(() => {});
+            }
+        }
+
+        // ================= PWA - Install Prompt =================
+        let deferredPrompt;
+
+        function setupInstallPrompt() {
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                showInstallBanner();
+            });
+            window.addEventListener('appinstalled', () => {
+                hideInstallBanner();
+                deferredPrompt = null;
+            });
+            // Show banner if app is not already installed and not recently dismissed
+            if (!isAppInstalled() && !wasRecentlyDismissed()) {
+                setTimeout(attemptShowBanner, 3000);
+            }
+        }
+
+        function attemptShowBanner() {
+            if (deferredPrompt) {
+                showInstallBanner();
+            }
+        }
+
+        function showInstallBanner() {
+            document.getElementById('installBanner').classList.add('show');
+            document.getElementById('installBanner').style.display = 'flex';
+        }
+
+        function hideInstallBanner() {
+            document.getElementById('installBanner').classList.remove('show');
+            document.getElementById('installBanner').style.display = 'none';
+        }
+
+        function dismissInstall() {
+            hideInstallBanner();
+            localStorage.setItem('installDismissedAt', Date.now().toString());
+        }
+
+        function isAppInstalled() {
+            return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+        }
+
+        function wasRecentlyDismissed() {
+            const dismissedAt = localStorage.getItem('installDismissedAt');
+            if (!dismissedAt) return false;
+            return (Date.now() - parseInt(dismissedAt)) < 7 * 24 * 60 * 60 * 1000; // 7 days
+        }
+
+        async function installApp() {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            hideInstallBanner();
+            deferredPrompt = null;
+            if (outcome === 'accepted') {
+                localStorage.removeItem('installDismissedAt');
+            }
+        }
+
+        // ================= Expose to window =================
+        Object.assign(window, {
+            updateCustomInputLabel, toggleTheme, renderData, switchCategory,
+            openSidebar, closeSidebar, openModal, closeModal, saveItem,
+            editItem, deleteItem, toggleTask, openViewModal, closeViewModal,
+            saveViewContent, copyViewContent, addNewCategory,
+            openSettingsModal, closeSettingsModal, renderCategorySettings,
+            addCategoryFromSettings, openCalendarModal, closeCalendarModal,
+            changeMonth, setShiftStart, installApp, dismissInstall
+        });
+
+        initApp();
+    </script>
+</body>
+</html>
